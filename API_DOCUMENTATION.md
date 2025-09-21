@@ -68,9 +68,14 @@ Content-Type: application/json
     "preferred_bed_type": "A",
     "payment_method": "cash",
     "payer_name": "John Doe",
-    "reference": "REF123456"
+    "reference": "TXN123456"
 }
 ```
+
+**Response includes:**
+- `booking_reference`: Auto-generated unique reference (e.g., "REF123ABC456")
+- `room_id`: Assigned room with bed space A or B
+- `total_amount`: Calculated as number_of_nights × 2000 naira
 
 ### Check-out
 ```http

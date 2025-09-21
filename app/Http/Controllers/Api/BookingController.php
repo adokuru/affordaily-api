@@ -75,11 +75,15 @@ class BookingController extends Controller
                 $request->number_of_nights
             );
 
+            // Generate booking reference
+            $bookingReference = $this->generateBookingReference();
+
             // Create booking
             $checkInTime = now();
             $scheduledCheckoutTime = $checkInTime->copy()->addDays($request->number_of_nights)->setTime(12, 0);
 
             $booking = Booking::create([
+                'booking_reference' => $bookingReference,
                 'room_id' => $room->id,
                 'guest_name' => $request->guest_name,
                 'guest_phone' => $request->guest_phone,
@@ -293,5 +297,19 @@ class BookingController extends Controller
             'success' => true,
             'data' => $bookings
         ]);
+    }
+
+    /**
+     * Generate a unique booking reference.
+     *
+     * @return string
+     */
+    private function generateBookingReference(): string
+    {
+        do {
+            $reference = 'REF' . strtoupper(uniqid());
+        } while (Booking::where('booking_reference', $reference)->exists());
+
+        return $reference;
     }
 }

@@ -13,16 +13,16 @@ class RoomRateSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create room rates for both bed types
+        // Create room rates for both bed types - 2000 naira per night
         RoomRate::create([
             'bed_type' => 'A',
-            'rate_per_night' => 50.00,
+            'rate_per_night' => 2000.00,
             'is_active' => true,
         ]);
 
         RoomRate::create([
             'bed_type' => 'B',
-            'rate_per_night' => 75.00,
+            'rate_per_night' => 2000.00,
             'is_active' => true,
         ]);
     }
