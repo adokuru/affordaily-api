@@ -12,6 +12,7 @@ class Booking extends Model
 
     protected $fillable = [
         'booking_reference',
+        'guest_id',
         'room_id',
         'guest_name',
         'guest_phone',
@@ -39,6 +40,14 @@ class Booking extends Model
         'amount_paid' => 'decimal:2',
         'key_returned' => 'boolean',
     ];
+
+    /**
+     * Get the guest that belongs to this booking.
+     */
+    public function guest()
+    {
+        return $this->belongsTo(Guest::class);
+    }
 
     /**
      * Get the room that belongs to this booking.
