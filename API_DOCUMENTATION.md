@@ -134,6 +134,19 @@ Content-Type: application/json
 - `GET /api/rooms/rates` - Get room rates
 - `POST /api/rooms/rates` - Update room rates
 
+### Guests
+- `GET /api/guests` - List all guests
+- `POST /api/guests` - Create new guest
+- `GET /api/guests/{id}` - Get guest details with booking history
+- `PUT /api/guests/{id}` - Update guest information
+- `GET /api/guests/search/phone` - Search guest by phone number
+
+### Guest Phone Lookup
+```http
+GET /api/guests/search/phone?phone=+1234567890
+Authorization: Bearer {token}
+```
+
 ### Payments
 - `GET /api/payments` - List payments
 - `POST /api/payments` - Create payment
@@ -174,8 +187,9 @@ Content-Type: application/json
 - Deactivates all visitor passes
 
 ## Room Types
-- **Type A**: Lower rate (default: $50/night)
-- **Type B**: Higher rate (default: $75/night)
+- **Bed Space A**: 2000 naira/night (200 rooms available)
+- **Bed Space B**: 2000 naira/night (200 rooms available)
+- **Total**: 400 rooms with automatic bed space assignment
 
 ## Booking Statuses
 - `active` - Guest is currently checked in
