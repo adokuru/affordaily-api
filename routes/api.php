@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\VisitorPassController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\GuestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,6 +56,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('payments', PaymentController::class);
     Route::post('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
     Route::get('/payments/ledger', [PaymentController::class, 'ledger']);
+
+    // Guest routes
+    Route::apiResource('guests', GuestController::class);
+    Route::get('/guests/search/phone', [GuestController::class, 'searchByPhone']);
 
     // Dashboard routes
     Route::get('/dashboard/stats', function () {

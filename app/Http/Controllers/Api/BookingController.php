@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Room;
+use App\Models\Guest;
 use App\Services\RoomAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,7 @@ class BookingController extends Controller
      */
     public function index()
     {
-        $bookings = Booking::with(['room', 'payments', 'visitorPasses'])
+        $bookings = Booking::with(['guest', 'room', 'payments', 'visitorPasses'])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
@@ -59,6 +60,17 @@ class BookingController extends Controller
         }
 
         try {
+            // Find or create guest
+            $guest = $this->findOrCreateGuest($request);
+
+            // Check if guest is blacklisted
+            if ($guest->is_blacklisted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Guest is blacklisted: ' . $guest->blacklist_reason
+                ], 400);
+            }
+
             // Assign room
             $room = $this->roomAssignmentService->assignRoom($request->preferred_bed_type);
             
@@ -84,6 +96,7 @@ class BookingController extends Controller
 
             $booking = Booking::create([
                 'booking_reference' => $bookingReference,
+                'guest_id' => $guest->id,
                 'room_id' => $room->id,
                 'guest_name' => $request->guest_name,
                 'guest_phone' => $request->guest_phone,
@@ -96,6 +109,9 @@ class BookingController extends Controller
                 'amount_paid' => $totalAmount,
                 'created_by' => Auth::id(),
             ]);
+
+            // Update guest statistics
+            $guest->updateStats($totalAmount);
 
             // Create payment record
             $booking->payments()->create([
@@ -311,5 +327,41 @@ class BookingController extends Controller
         } while (Booking::where('booking_reference', $reference)->exists());
 
         return $reference;
+    }
+
+    /**
+     * Find existing guest or create new one.
+     *
+     * @param Request $request
+     * @return Guest
+     */
+    private function findOrCreateGuest(Request $request): Guest
+    {
+        // First, try to find existing guest by phone
+        $guest = Guest::byPhone($request->guest_phone)->first();
+
+        if ($guest) {
+            // Update guest information if provided
+            $updateData = [];
+            if ($request->guest_name && $request->guest_name !== $guest->name) {
+                $updateData['name'] = $request->guest_name;
+            }
+            if ($request->id_photo_path && $request->id_photo_path !== $guest->id_photo_path) {
+                $updateData['id_photo_path'] = $request->id_photo_path;
+            }
+            
+            if (!empty($updateData)) {
+                $guest->update($updateData);
+            }
+
+            return $guest;
+        }
+
+        // Create new guest
+        return Guest::create([
+            'name' => $request->guest_name,
+            'phone' => $request->guest_phone,
+            'id_photo_path' => $request->id_photo_path,
+        ]);
     }
 }
