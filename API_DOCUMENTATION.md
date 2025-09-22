@@ -117,11 +117,16 @@ Content-Type: application/json
 
 {
     "booking_id": 1,
-    "visitor_name": "Jane Doe",
     "visitor_phone": "+1234567891",
-    "visitor_id_photo_path": "/uploads/visitor_photos/jane_doe.jpg"
+    "visitor_name": "Jane Doe"
 }
 ```
+
+**Response includes:**
+- `visitor`: Complete guest information (name, phone, email, etc.)
+- `booking`: Booking reference and room number
+- `is_active`: Pass status
+- `check_in_time` / `check_out_time`: Timestamps
 
 ### Rooms
 - `GET /api/rooms` - List all rooms

@@ -11,9 +11,7 @@ class VisitorPass extends Model
 
     protected $fillable = [
         'booking_id',
-        'visitor_name',
-        'visitor_phone',
-        'visitor_id_photo_path',
+        'guest_id',
         'check_in_time',
         'check_out_time',
         'is_active',
@@ -32,6 +30,14 @@ class VisitorPass extends Model
     public function booking()
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    /**
+     * Get the guest that this visitor pass belongs to.
+     */
+    public function guest()
+    {
+        return $this->belongsTo(Guest::class);
     }
 
     /**

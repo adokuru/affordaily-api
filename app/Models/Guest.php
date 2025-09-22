@@ -45,6 +45,14 @@ class Guest extends Model
     }
 
     /**
+     * Get the visitor passes for this guest.
+     */
+    public function visitorPasses()
+    {
+        return $this->hasMany(VisitorPass::class);
+    }
+
+    /**
      * Scope to get non-blacklisted guests.
      */
     public function scopeNotBlacklisted($query)

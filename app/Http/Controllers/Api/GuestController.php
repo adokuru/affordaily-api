@@ -3,29 +3,28 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Guest\SearchGuestRequest;
+use App\Http\Resources\GuestResource;
+use App\Actions\Guest\SearchGuestByPhoneAction;
 use App\Models\Guest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class GuestController extends Controller
 {
+    protected SearchGuestByPhoneAction $searchGuestByPhoneAction;
+
+    public function __construct(SearchGuestByPhoneAction $searchGuestByPhoneAction)
+    {
+        $this->searchGuestByPhoneAction = $searchGuestByPhoneAction;
+    }
+
     /**
      * Search for a guest by phone number.
      */
-    public function searchByPhone(Request $request)
+    public function searchByPhone(SearchGuestRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'phone' => 'required|string|max:20',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $guest = Guest::byPhone($request->phone)->notBlacklisted()->first();
+        $guest = $this->searchGuestByPhoneAction->execute($request->phone);
 
         if (!$guest) {
             return response()->json([
@@ -36,7 +35,7 @@ class GuestController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $guest
+            'data' => new GuestResource($guest)
         ]);
     }
 

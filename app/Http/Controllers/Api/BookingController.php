@@ -3,22 +3,37 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Booking\CreateBookingRequest;
+use App\Http\Resources\BookingResource;
+use App\Actions\Guest\FindOrCreateGuestAction;
+use App\Actions\Guest\UpdateGuestStatsAction;
+use App\Actions\Booking\CreateBookingAction;
+use App\Actions\Booking\CheckoutBookingAction;
+use App\Actions\Booking\ExtendBookingAction;
 use App\Models\Booking;
-use App\Models\Room;
-use App\Models\Guest;
-use App\Services\RoomAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
 
 class BookingController extends Controller
 {
-    protected $roomAssignmentService;
+    protected FindOrCreateGuestAction $findOrCreateGuestAction;
+    protected UpdateGuestStatsAction $updateGuestStatsAction;
+    protected CreateBookingAction $createBookingAction;
+    protected CheckoutBookingAction $checkoutBookingAction;
+    protected ExtendBookingAction $extendBookingAction;
 
-    public function __construct(RoomAssignmentService $roomAssignmentService)
-    {
-        $this->roomAssignmentService = $roomAssignmentService;
+    public function __construct(
+        FindOrCreateGuestAction $findOrCreateGuestAction,
+        UpdateGuestStatsAction $updateGuestStatsAction,
+        CreateBookingAction $createBookingAction,
+        CheckoutBookingAction $checkoutBookingAction,
+        ExtendBookingAction $extendBookingAction
+    ) {
+        $this->findOrCreateGuestAction = $findOrCreateGuestAction;
+        $this->updateGuestStatsAction = $updateGuestStatsAction;
+        $this->createBookingAction = $createBookingAction;
+        $this->checkoutBookingAction = $checkoutBookingAction;
+        $this->extendBookingAction = $extendBookingAction;
     }
 
     /**
@@ -32,104 +47,43 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $bookings
+            'data' => BookingResource::collection($bookings)
         ]);
     }
 
     /**
      * Store a newly created resource in storage (Check-in).
      */
-    public function store(Request $request)
+    public function store(CreateBookingRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'guest_name' => 'required|string|max:255',
-            'guest_phone' => 'required|string|max:20',
-            'id_photo_path' => 'nullable|string',
-            'number_of_nights' => 'required|integer|min:1',
-            'preferred_bed_type' => 'nullable|in:A,B',
-            'payment_method' => 'required|in:cash,transfer',
-            'payer_name' => 'required|string|max:255',
-            'reference' => 'nullable|string|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         try {
             // Find or create guest
-            $guest = $this->findOrCreateGuest($request);
-
-            // Check if guest is blacklisted
-            if ($guest->is_blacklisted) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Guest is blacklisted: ' . $guest->blacklist_reason
-                ], 400);
-            }
-
-            // Assign room
-            $room = $this->roomAssignmentService->assignRoom($request->preferred_bed_type);
-            
-            if (!$room) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No available rooms found'
-                ], 400);
-            }
-
-            // Calculate total amount
-            $totalAmount = $this->roomAssignmentService->calculateTotalAmount(
-                $room->bed_type, 
-                $request->number_of_nights
+            $guest = $this->findOrCreateGuestAction->execute(
+                $request->guest_phone,
+                $request->guest_name,
+                $request->id_photo_path
             );
 
-            // Generate booking reference
-            $bookingReference = $this->generateBookingReference();
-
-            // Create booking
-            $checkInTime = now();
-            $scheduledCheckoutTime = $checkInTime->copy()->addDays($request->number_of_nights)->setTime(12, 0);
-
-            $booking = Booking::create([
-                'booking_reference' => $bookingReference,
-                'guest_id' => $guest->id,
-                'room_id' => $room->id,
-                'guest_name' => $request->guest_name,
-                'guest_phone' => $request->guest_phone,
-                'id_photo_path' => $request->id_photo_path,
-                'check_in_time' => $checkInTime,
-                'scheduled_checkout_time' => $scheduledCheckoutTime,
-                'number_of_nights' => $request->number_of_nights,
-                'status' => 'active',
-                'total_amount' => $totalAmount,
-                'amount_paid' => $totalAmount,
-                'created_by' => Auth::id(),
-            ]);
+            // Create booking using action
+            $booking = $this->createBookingAction->execute(
+                $guest,
+                $request->guest_name,
+                $request->guest_phone,
+                $request->id_photo_path,
+                $request->number_of_nights,
+                $request->preferred_bed_type,
+                $request->payment_method,
+                $request->payer_name,
+                $request->reference,
+                Auth::id()
+            );
 
             // Update guest statistics
-            $guest->updateStats($totalAmount);
-
-            // Create payment record
-            $booking->payments()->create([
-                'payment_method' => $request->payment_method,
-                'amount' => $totalAmount,
-                'payer_name' => $request->payer_name,
-                'reference' => $request->reference,
-                'is_confirmed' => true,
-                'confirmed_at' => now(),
-                'processed_by' => Auth::id(),
-            ]);
-
-            // Update room availability
-            $room->update(['is_available' => false]);
+            $this->updateGuestStatsAction->execute($guest, $booking->total_amount);
 
             return response()->json([
                 'success' => true,
-                'data' => $booking->load(['room', 'payments'])
+                'data' => new BookingResource($booking)
             ], 201);
 
         } catch (\Exception $e) {

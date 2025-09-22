@@ -3,20 +3,33 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
+use App\Http\Requests\VisitorPass\IssueVisitorPassRequest;
+use App\Http\Resources\VisitorPassResource;
+use App\Actions\VisitorPass\IssueVisitorPassAction;
+use App\Actions\VisitorPass\CheckoutVisitorAction;
 use App\Models\VisitorPass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 class VisitorPassController extends Controller
 {
+    protected IssueVisitorPassAction $issueVisitorPassAction;
+    protected CheckoutVisitorAction $checkoutVisitorAction;
+
+    public function __construct(
+        IssueVisitorPassAction $issueVisitorPassAction,
+        CheckoutVisitorAction $checkoutVisitorAction
+    ) {
+        $this->issueVisitorPassAction = $issueVisitorPassAction;
+        $this->checkoutVisitorAction = $checkoutVisitorAction;
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
-        $query = VisitorPass::with(['booking.room', 'issuedBy']);
+        $query = VisitorPass::with(['guest', 'booking.room', 'issuedBy']);
 
         if ($request->booking_id) {
             $query->where('booking_id', $request->booking_id);
@@ -30,52 +43,26 @@ class VisitorPassController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $visitorPasses
+            'data' => VisitorPassResource::collection($visitorPasses)
         ]);
     }
 
     /**
      * Store a newly created resource in storage (Issue visitor pass).
      */
-    public function store(Request $request)
+    public function store(IssueVisitorPassRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'booking_id' => 'required|exists:bookings,id',
-            'visitor_name' => 'required|string|max:255',
-            'visitor_phone' => 'nullable|string|max:20',
-            'visitor_id_photo_path' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
         try {
-            $booking = Booking::findOrFail($request->booking_id);
-            
-            if ($booking->status !== 'active') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot issue visitor pass for inactive booking'
-                ], 400);
-            }
-
-            $visitorPass = VisitorPass::create([
-                'booking_id' => $request->booking_id,
-                'visitor_name' => $request->visitor_name,
-                'visitor_phone' => $request->visitor_phone,
-                'visitor_id_photo_path' => $request->visitor_id_photo_path,
-                'check_in_time' => now(),
-                'is_active' => true,
-                'issued_by' => Auth::id(),
-            ]);
+            $visitorPass = $this->issueVisitorPassAction->execute(
+                $request->booking_id,
+                $request->visitor_phone,
+                $request->visitor_name,
+                Auth::id()
+            );
 
             return response()->json([
                 'success' => true,
-                'data' => $visitorPass->load(['booking.room', 'issuedBy'])
+                'data' => new VisitorPassResource($visitorPass)
             ], 201);
 
         } catch (\Exception $e) {
@@ -91,12 +78,12 @@ class VisitorPassController extends Controller
      */
     public function show(string $id)
     {
-        $visitorPass = VisitorPass::with(['booking.room', 'issuedBy'])
+        $visitorPass = VisitorPass::with(['guest', 'booking.room', 'issuedBy'])
             ->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data' => $visitorPass
+            'data' => new VisitorPassResource($visitorPass)
         ]);
     }
 
@@ -107,22 +94,11 @@ class VisitorPassController extends Controller
     {
         try {
             $visitorPass = VisitorPass::findOrFail($id);
-            
-            if (!$visitorPass->is_active) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Visitor pass is not active'
-                ], 400);
-            }
-
-            $visitorPass->update([
-                'is_active' => false,
-                'check_out_time' => now(),
-            ]);
+            $visitorPass = $this->checkoutVisitorAction->execute($visitorPass);
 
             return response()->json([
                 'success' => true,
-                'data' => $visitorPass->load(['booking.room', 'issuedBy'])
+                'data' => new VisitorPassResource($visitorPass)
             ]);
 
         } catch (\Exception $e) {
@@ -139,15 +115,14 @@ class VisitorPassController extends Controller
     public function activeForBooking(string $bookingId)
     {
         try {
-            $booking = Booking::findOrFail($bookingId);
-            
-            $activeVisitorPasses = $booking->activeVisitorPasses()
-                ->with('issuedBy')
+            $activeVisitorPasses = VisitorPass::where('booking_id', $bookingId)
+                ->where('is_active', true)
+                ->with(['guest', 'issuedBy'])
                 ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $activeVisitorPasses
+                'data' => VisitorPassResource::collection($activeVisitorPasses)
             ]);
 
         } catch (\Exception $e) {
@@ -164,16 +139,14 @@ class VisitorPassController extends Controller
     public function forBooking(string $bookingId)
     {
         try {
-            $booking = Booking::findOrFail($bookingId);
-            
-            $visitorPasses = $booking->visitorPasses()
-                ->with('issuedBy')
+            $visitorPasses = VisitorPass::where('booking_id', $bookingId)
+                ->with(['guest', 'issuedBy'])
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $visitorPasses
+                'data' => VisitorPassResource::collection($visitorPasses)
             ]);
 
         } catch (\Exception $e) {

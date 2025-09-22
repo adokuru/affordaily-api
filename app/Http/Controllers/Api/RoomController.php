@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\RoomResource;
+use App\Actions\Room\GetAvailableRoomsAction;
+use App\Actions\Room\GetRoomOccupancyStatsAction;
+use App\Services\CacheService;
 use App\Models\Room;
 use App\Models\RoomRate;
 use App\Services\RoomAssignmentService;
@@ -10,11 +14,18 @@ use Illuminate\Http\Request;
 
 class RoomController extends Controller
 {
-    protected $roomAssignmentService;
+    protected RoomAssignmentService $roomAssignmentService;
+    protected GetAvailableRoomsAction $getAvailableRoomsAction;
+    protected GetRoomOccupancyStatsAction $getRoomOccupancyStatsAction;
 
-    public function __construct(RoomAssignmentService $roomAssignmentService)
-    {
+    public function __construct(
+        RoomAssignmentService $roomAssignmentService,
+        GetAvailableRoomsAction $getAvailableRoomsAction,
+        GetRoomOccupancyStatsAction $getRoomOccupancyStatsAction
+    ) {
         $this->roomAssignmentService = $roomAssignmentService;
+        $this->getAvailableRoomsAction = $getAvailableRoomsAction;
+        $this->getRoomOccupancyStatsAction = $getRoomOccupancyStatsAction;
     }
 
     /**
@@ -22,7 +33,7 @@ class RoomController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Room::with(['activeBooking.guest_name', 'activeBooking.scheduled_checkout_time']);
+        $query = Room::with(['activeBooking']);
 
         if ($request->bed_type) {
             $query->byBedType($request->bed_type);
@@ -40,7 +51,7 @@ class RoomController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $rooms
+            'data' => RoomResource::collection($rooms)
         ]);
     }
 
@@ -170,7 +181,9 @@ class RoomController extends Controller
      */
     public function available(Request $request)
     {
-        $availableRooms = $this->roomAssignmentService->getAvailableRoomsByType();
+        $availableRooms = CacheService::rememberAvailableRooms(function () use ($request) {
+            return $this->getAvailableRoomsAction->execute($request->bed_type);
+        });
 
         return response()->json([
             'success' => true,
@@ -183,7 +196,9 @@ class RoomController extends Controller
      */
     public function occupancy()
     {
-        $stats = $this->roomAssignmentService->getOccupancyStats();
+        $stats = CacheService::rememberRoomOccupancyStats(function () {
+            return $this->getRoomOccupancyStatsAction->execute();
+        });
 
         return response()->json([
             'success' => true,
