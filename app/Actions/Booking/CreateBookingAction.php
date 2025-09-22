@@ -53,14 +53,14 @@ class CreateBookingAction extends BaseAction
 
         // Assign room
         $room = $this->roomAssignmentService->assignRoom($preferredBedType);
-        
+
         if (!$room) {
             throw new \Exception('No available rooms found');
         }
 
         // Calculate total amount
         $totalAmount = $this->roomAssignmentService->calculateTotalAmount(
-            $room->bed_type, 
+            $room->bed_type,
             $numberOfNights
         );
 

@@ -28,7 +28,7 @@ class IssueVisitorPassAction extends BaseAction
     public function execute(int $bookingId, string $visitorPhone, string $visitorName, int $issuedBy): VisitorPass
     {
         $booking = Booking::findOrFail($bookingId);
-        
+
         if ($booking->status !== 'active') {
             throw new \Exception('Cannot issue visitor pass for inactive booking');
         }

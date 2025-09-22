@@ -33,7 +33,7 @@ class FindOrCreateGuestAction extends BaseAction
             if ($email && $email !== $guest->email) {
                 $updateData['email'] = $email;
             }
-            
+
             if (!empty($updateData)) {
                 $guest->update($updateData);
             }

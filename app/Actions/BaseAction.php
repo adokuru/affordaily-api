@@ -4,25 +4,18 @@ namespace App\Actions;
 
 abstract class BaseAction
 {
-    /**
-     * Execute the action.
-     *
-     * @param mixed ...$arguments
-     * @return mixed
-     */
-    abstract public function execute(...$arguments);
 
     /**
      * Handle the action execution with error handling.
      *
-     * @param mixed ...$arguments
      * @return array
      */
     public function handle(...$arguments): array
     {
         try {
+            // Defer to child class implementation; pass through any arguments
             $result = $this->execute(...$arguments);
-            
+
             return [
                 'success' => true,
                 'data' => $result,
