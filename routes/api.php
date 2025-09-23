@@ -44,6 +44,7 @@ Route::prefix('v1')->group(function () {
 
         // Booking routes
         Route::apiResource('bookings', BookingController::class);
+
         Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
         Route::post('/bookings/{id}/extend', [BookingController::class, 'extend']);
         Route::get('/bookings/search', [BookingController::class, 'search']);

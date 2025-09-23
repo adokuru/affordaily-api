@@ -24,7 +24,7 @@ class CreateBookingRequest extends FormRequest
         return [
             'guest_name' => 'required|string|max:255',
             'guest_phone' => 'required|string|max:20',
-            'id_photo_path' => 'nullable|string',
+            'id_photo_path' => 'file|image|max:2048',
             'number_of_nights' => 'required|integer|min:1|max:30',
             'preferred_bed_type' => 'nullable|in:A,B',
             'payment_method' => 'required|in:cash,transfer',

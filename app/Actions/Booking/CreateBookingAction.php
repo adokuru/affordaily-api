@@ -80,6 +80,7 @@ class CreateBookingAction extends BaseAction
             'id_photo_path' => $idPhotoPath,
             'check_in_time' => $checkInTime,
             'scheduled_checkout_time' => $scheduledCheckoutTime,
+            'check_out_time' => $scheduledCheckoutTime,
             'number_of_nights' => $numberOfNights,
             'status' => 'active',
             'total_amount' => $totalAmount,

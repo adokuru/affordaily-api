@@ -13,6 +13,7 @@ use App\Actions\Booking\ExtendBookingAction;
 use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
 {
@@ -64,17 +65,19 @@ class BookingController extends Controller
                 $request->id_photo_path
             );
 
+            $idPhotoPath = $request->id_photo_path ? $this->uploadIdPhoto($request) : null;
+
             // Create booking using action
             $booking = $this->createBookingAction->execute(
                 $guest,
                 $request->guest_name,
                 $request->guest_phone,
-                $request->id_photo_path,
+                $idPhotoPath,
                 $request->number_of_nights,
                 $request->preferred_bed_type,
                 $request->payment_method,
-                $request->payer_name,
-                $request->reference,
+                $request->guest_name,
+                $request->reference ?? $this->generateBookingReference(),
                 Auth::id()
             );
 
@@ -128,7 +131,7 @@ class BookingController extends Controller
 
         try {
             $booking = Booking::findOrFail($id);
-            
+
             if ($booking->status !== 'active') {
                 return response()->json([
                     'success' => false,
@@ -184,7 +187,7 @@ class BookingController extends Controller
 
         try {
             $booking = Booking::with('room')->findOrFail($id);
-            
+
             if ($booking->status !== 'active') {
                 return response()->json([
                     'success' => false,
@@ -194,7 +197,7 @@ class BookingController extends Controller
 
             // Calculate additional amount
             $additionalAmount = $this->roomAssignmentService->calculateTotalAmount(
-                $booking->room->bed_type, 
+                $booking->room->bed_type,
                 $request->additional_nights
             );
 
@@ -303,7 +306,7 @@ class BookingController extends Controller
             if ($request->id_photo_path && $request->id_photo_path !== $guest->id_photo_path) {
                 $updateData['id_photo_path'] = $request->id_photo_path;
             }
-            
+
             if (!empty($updateData)) {
                 $guest->update($updateData);
             }
@@ -316,6 +319,25 @@ class BookingController extends Controller
             'name' => $request->guest_name,
             'phone' => $request->guest_phone,
             'id_photo_path' => $request->id_photo_path,
+        ]);
+    }
+
+    /**
+     * Upload ID photo.
+     */
+    public function uploadIdPhoto(Request $request)
+    {
+        $request->validate([
+            'id_photo' => 'required|image|max:2048',
+        ]);
+
+        $path = Storage::disk('public')->put('id_photos', $request->file('id_photo'));
+
+        $url = Storage::disk('public')->url($path);
+
+        return response()->json([
+            'success' => true,
+            'data' => $url
         ]);
     }
 }
