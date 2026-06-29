@@ -2,25 +2,30 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Booking\CheckoutBookingAction;
+use App\Actions\Booking\CreateBookingAction;
+use App\Actions\Booking\ExtendBookingAction;
+use App\Actions\Guest\FindOrCreateGuestAction;
+use App\Actions\Guest\UpdateGuestStatsAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\CreateBookingRequest;
 use App\Http\Resources\BookingResource;
-use App\Actions\Guest\FindOrCreateGuestAction;
-use App\Actions\Guest\UpdateGuestStatsAction;
-use App\Actions\Booking\CreateBookingAction;
-use App\Actions\Booking\CheckoutBookingAction;
-use App\Actions\Booking\ExtendBookingAction;
 use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class BookingController extends Controller
 {
     protected FindOrCreateGuestAction $findOrCreateGuestAction;
+
     protected UpdateGuestStatsAction $updateGuestStatsAction;
+
     protected CreateBookingAction $createBookingAction;
+
     protected CheckoutBookingAction $checkoutBookingAction;
+
     protected ExtendBookingAction $extendBookingAction;
 
     public function __construct(
@@ -48,7 +53,7 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => BookingResource::collection($bookings)
+            'data' => BookingResource::collection($bookings),
         ]);
     }
 
@@ -58,14 +63,14 @@ class BookingController extends Controller
     public function store(CreateBookingRequest $request)
     {
         try {
+            $idPhotoPath = $this->storeIdPhoto($request);
+
             // Find or create guest
             $guest = $this->findOrCreateGuestAction->execute(
                 $request->guest_phone,
                 $request->guest_name,
-                $request->id_photo_path
+                $idPhotoPath
             );
-
-            $idPhotoPath = $request->id_photo_path ? $this->uploadIdPhoto($request) : null;
 
             // Create booking using action
             $booking = $this->createBookingAction->execute(
@@ -86,13 +91,13 @@ class BookingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new BookingResource($booking)
+                'data' => new BookingResource($booking),
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error creating booking: ' . $e->getMessage()
+                'message' => 'Error creating booking: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -107,7 +112,7 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $booking
+            'data' => $booking,
         ]);
     }
 
@@ -125,7 +130,7 @@ class BookingController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -135,7 +140,7 @@ class BookingController extends Controller
             if ($booking->status !== 'active') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Booking is not active'
+                    'message' => 'Booking is not active',
                 ], 400);
             }
 
@@ -158,13 +163,13 @@ class BookingController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $booking->load(['room', 'payments', 'visitorPasses'])
+                'data' => $booking->load(['room', 'payments', 'visitorPasses']),
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error during checkout: ' . $e->getMessage()
+                'message' => 'Error during checkout: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -181,7 +186,7 @@ class BookingController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -191,34 +196,23 @@ class BookingController extends Controller
             if ($booking->status !== 'active') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Booking is not active'
+                    'message' => 'Booking is not active',
                 ], 400);
             }
 
-            // Calculate additional amount
-            $additionalAmount = $this->roomAssignmentService->calculateTotalAmount(
-                $booking->room->bed_type,
-                $request->additional_nights
-            );
-
-            // Update booking
-            $newScheduledCheckout = $booking->scheduled_checkout_time->addDays($request->additional_nights);
-            $booking->update([
-                'scheduled_checkout_time' => $newScheduledCheckout,
-                'number_of_nights' => $booking->number_of_nights + $request->additional_nights,
-                'total_amount' => $booking->total_amount + $additionalAmount,
-            ]);
+            $currentTotal = (float) $booking->total_amount;
+            $booking = $this->extendBookingAction->execute($booking, (int) $request->additional_nights);
 
             return response()->json([
                 'success' => true,
                 'data' => $booking->load(['room', 'payments']),
-                'additional_amount' => $additionalAmount
+                'additional_amount' => (float) $booking->total_amount - $currentTotal,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error extending booking: ' . $e->getMessage()
+                'message' => 'Error extending booking: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -231,16 +225,16 @@ class BookingController extends Controller
         $query = Booking::with(['room', 'payments']);
 
         if ($request->guest_name) {
-            $query->where('guest_name', 'like', '%' . $request->guest_name . '%');
+            $query->where('guest_name', 'like', '%'.$request->guest_name.'%');
         }
 
         if ($request->guest_phone) {
-            $query->where('guest_phone', 'like', '%' . $request->guest_phone . '%');
+            $query->where('guest_phone', 'like', '%'.$request->guest_phone.'%');
         }
 
         if ($request->room_number) {
             $query->whereHas('room', function ($q) use ($request) {
-                $q->where('room_number', 'like', '%' . $request->room_number . '%');
+                $q->where('room_number', 'like', '%'.$request->room_number.'%');
             });
         }
 
@@ -252,7 +246,7 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $bookings
+            'data' => $bookings,
         ]);
     }
 
@@ -268,19 +262,17 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $bookings
+            'data' => $bookings,
         ]);
     }
 
     /**
      * Generate a unique booking reference.
-     *
-     * @return string
      */
     private function generateBookingReference(): string
     {
         do {
-            $reference = 'REF' . strtoupper(uniqid());
+            $reference = 'REF'.strtoupper(uniqid());
         } while (Booking::where('booking_reference', $reference)->exists());
 
         return $reference;
@@ -288,9 +280,6 @@ class BookingController extends Controller
 
     /**
      * Find existing guest or create new one.
-     *
-     * @param Request $request
-     * @return Guest
      */
     private function findOrCreateGuest(Request $request): Guest
     {
@@ -307,7 +296,7 @@ class BookingController extends Controller
                 $updateData['id_photo_path'] = $request->id_photo_path;
             }
 
-            if (!empty($updateData)) {
+            if (! empty($updateData)) {
                 $guest->update($updateData);
             }
 
@@ -322,22 +311,12 @@ class BookingController extends Controller
         ]);
     }
 
-    /**
-     * Upload ID photo.
-     */
-    public function uploadIdPhoto(Request $request)
+    private function storeIdPhoto(CreateBookingRequest $request): ?string
     {
-        $request->validate([
-            'id_photo' => 'required|image|max:2048',
-        ]);
+        if (! $request->hasFile('id_photo')) {
+            return null;
+        }
 
-        $path = Storage::disk('public')->put('id_photos', $request->file('id_photo'));
-
-        $url = Storage::disk('public')->url($path);
-
-        return response()->json([
-            'success' => true,
-            'data' => $url
-        ]);
+        return $request->file('id_photo')->store('id_photos', 'public');
     }
 }

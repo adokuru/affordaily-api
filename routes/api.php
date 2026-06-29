@@ -1,13 +1,17 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\GuestController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\VisitorPassController;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Models\Room;
+use App\Models\VisitorPass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\BookingController;
-use App\Http\Controllers\Api\VisitorPassController;
-use App\Http\Controllers\Api\RoomController;
-use App\Http\Controllers\Api\PaymentController;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\GuestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,7 +28,7 @@ use App\Http\Controllers\Api\GuestController;
 Route::prefix('v1')->group(function () {
 
     // Authentication routes
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
     // Protected routes
@@ -35,20 +39,18 @@ Route::prefix('v1')->group(function () {
             return $request->user();
         });
 
-        // Room routes
-        Route::apiResource('rooms', RoomController::class);
         Route::get('/rooms/available', [RoomController::class, 'available']);
         Route::get('/rooms/occupancy', [RoomController::class, 'occupancy']);
         Route::get('/rooms/rates', [RoomController::class, 'rates']);
         Route::post('/rooms/rates', [RoomController::class, 'updateRates']);
+        Route::apiResource('rooms', RoomController::class);
 
         // Booking routes
-        Route::apiResource('bookings', BookingController::class);
-
-        Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
-        Route::post('/bookings/{id}/extend', [BookingController::class, 'extend']);
         Route::get('/bookings/search', [BookingController::class, 'search']);
         Route::get('/bookings/active', [BookingController::class, 'active']);
+        Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
+        Route::post('/bookings/{id}/extend', [BookingController::class, 'extend']);
+        Route::apiResource('bookings', BookingController::class);
 
         // Visitor pass routes
         Route::apiResource('visitor-passes', VisitorPassController::class);
@@ -57,47 +59,47 @@ Route::prefix('v1')->group(function () {
         Route::get('/visitor-passes/booking/{bookingId}/all', [VisitorPassController::class, 'forBooking']);
 
         // Payment routes
-        Route::apiResource('payments', PaymentController::class);
-        Route::post('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
         Route::get('/payments/ledger', [PaymentController::class, 'ledger']);
+        Route::post('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
+        Route::apiResource('payments', PaymentController::class);
 
         // Guest routes
-        Route::apiResource('guests', GuestController::class);
         Route::get('/guests/search/phone', [GuestController::class, 'searchByPhone']);
+        Route::apiResource('guests', GuestController::class);
 
         // Dashboard routes
         Route::get('/dashboard/stats', function () {
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'total_rooms' => \App\Models\Room::count(),
-                    'occupied_rooms' => \App\Models\Room::whereHas('activeBooking')->count(),
-                    'available_rooms' => \App\Models\Room::whereDoesntHave('activeBooking')->count(),
-                    'active_bookings' => \App\Models\Booking::active()->count(),
-                    'pending_checkouts' => \App\Models\Booking::pendingCheckout()->count(),
-                    'total_visitors' => \App\Models\VisitorPass::active()->count(),
-                ]
+                    'total_rooms' => Room::count(),
+                    'occupied_rooms' => Room::whereHas('activeBooking')->count(),
+                    'available_rooms' => Room::whereDoesntHave('activeBooking')->count(),
+                    'active_bookings' => Booking::active()->count(),
+                    'pending_checkouts' => Booking::pendingCheckout()->count(),
+                    'total_visitors' => VisitorPass::active()->count(),
+                ],
             ]);
         });
 
         Route::get('/dashboard/roll-call', function () {
-            $activeBookings = \App\Models\Booking::active()
+            $activeBookings = Booking::active()
                 ->with([
                     'room',
                     'visitorPasses' => function ($query) {
                         $query->where('is_active', true);
-                    }
+                    },
                 ])
                 ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $activeBookings
+                'data' => $activeBookings,
             ]);
         });
 
         Route::get('/dashboard/payments', function (Request $request) {
-            $query = \App\Models\Payment::with(['booking.room', 'processedBy']);
+            $query = Payment::with(['booking.room', 'processedBy']);
 
             if ($request->date_from) {
                 $query->whereDate('created_at', '>=', $request->date_from);
@@ -119,7 +121,7 @@ Route::prefix('v1')->group(function () {
 
             return response()->json([
                 'success' => true,
-                'data' => $payments
+                'data' => $payments,
             ]);
         });
     });

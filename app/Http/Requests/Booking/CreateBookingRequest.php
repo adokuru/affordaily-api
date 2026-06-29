@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Booking;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CreateBookingRequest extends FormRequest
@@ -17,14 +18,14 @@ class CreateBookingRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
             'guest_name' => 'required|string|max:255',
             'guest_phone' => 'required|string|max:20',
-            'id_photo_path' => 'file|image|max:2048',
+            'id_photo' => 'nullable|file|image|max:2048',
             'number_of_nights' => 'required|integer|min:1|max:30',
             'preferred_bed_type' => 'nullable|in:A,B',
             'payment_method' => 'required|in:cash,transfer',
@@ -35,8 +36,6 @@ class CreateBookingRequest extends FormRequest
 
     /**
      * Get custom messages for validator errors.
-     *
-     * @return array
      */
     public function messages(): array
     {

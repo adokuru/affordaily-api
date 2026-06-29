@@ -8,12 +8,12 @@ All API endpoints (except login) require authentication using Laravel Sanctum to
 
 ### Login
 ```http
-POST /api/login
+POST /api/v1/login
 Content-Type: application/json
 
 {
     "email": "receptionist@affordaily.com",
-    "password": "receptionist123"
+    "password": "CHANGE_ME"
 }
 ```
 
@@ -34,36 +34,35 @@ Content-Type: application/json
 }
 ```
 
-## Default Users
-- **Admin**: admin@affordaily.com / admin123
-- **Receptionist**: receptionist@affordaily.com / receptionist123
+## Local Demo Users
+Default users are disabled unless `SEED_DEFAULT_USERS=true` is set before running `php artisan db:seed`. Demo credentials are for local development only and must not be used in production.
 
 ## API Endpoints
 
 ### Authentication
-- `POST /api/login` - Login user
-- `POST /api/logout` - Logout user (requires auth)
-- `GET /api/user` - Get current user info (requires auth)
+- `POST /api/v1/login` - Login user
+- `POST /api/v1/logout` - Logout user (requires auth)
+- `GET /api/v1/user` - Get current user info (requires auth)
 
 ### Bookings (POS Operations)
-- `GET /api/bookings` - List all bookings
-- `POST /api/bookings` - Create new booking (check-in)
-- `GET /api/bookings/{id}` - Get booking details
-- `POST /api/bookings/{id}/checkout` - Check out booking
-- `POST /api/bookings/{id}/extend` - Extend booking
-- `GET /api/bookings/search` - Search bookings
-- `GET /api/bookings/active` - Get active bookings
+- `GET /api/v1/bookings` - List all bookings
+- `POST /api/v1/bookings` - Create new booking (check-in)
+- `GET /api/v1/bookings/{id}` - Get booking details
+- `POST /api/v1/bookings/{id}/checkout` - Check out booking
+- `POST /api/v1/bookings/{id}/extend` - Extend booking
+- `GET /api/v1/bookings/search` - Search bookings
+- `GET /api/v1/bookings/active` - Get active bookings
 
 ### Check-in (Create Booking)
 ```http
-POST /api/bookings
+POST /api/v1/bookings
 Authorization: Bearer {token}
-Content-Type: application/json
+Content-Type: multipart/form-data
 
 {
     "guest_name": "John Doe",
     "guest_phone": "+1234567890",
-    "id_photo_path": "/uploads/id_photos/john_doe.jpg",
+    "id_photo": "<image file>",
     "number_of_nights": 2,
     "preferred_bed_type": "A",
     "payment_method": "cash",
@@ -79,7 +78,7 @@ Content-Type: application/json
 
 ### Check-out
 ```http
-POST /api/bookings/{id}/checkout
+POST /api/v1/bookings/{id}/checkout
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -92,7 +91,7 @@ Content-Type: application/json
 
 ### Extend Booking
 ```http
-POST /api/bookings/{id}/extend
+POST /api/v1/bookings/{id}/extend
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -102,16 +101,16 @@ Content-Type: application/json
 ```
 
 ### Visitor Passes
-- `GET /api/visitor-passes` - List visitor passes
-- `POST /api/visitor-passes` - Issue visitor pass
-- `GET /api/visitor-passes/{id}` - Get visitor pass details
-- `POST /api/visitor-passes/{id}/checkout` - Check out visitor
-- `GET /api/visitor-passes/booking/{bookingId}/active` - Get active visitors for booking
-- `GET /api/visitor-passes/booking/{bookingId}/all` - Get all visitors for booking
+- `GET /api/v1/visitor-passes` - List visitor passes
+- `POST /api/v1/visitor-passes` - Issue visitor pass
+- `GET /api/v1/visitor-passes/{id}` - Get visitor pass details
+- `POST /api/v1/visitor-passes/{id}/checkout` - Check out visitor
+- `GET /api/v1/visitor-passes/booking/{bookingId}/active` - Get active visitors for booking
+- `GET /api/v1/visitor-passes/booking/{bookingId}/all` - Get all visitors for booking
 
 ### Issue Visitor Pass
 ```http
-POST /api/visitor-passes
+POST /api/v1/visitor-passes
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -129,41 +128,41 @@ Content-Type: application/json
 - `check_in_time` / `check_out_time`: Timestamps
 
 ### Rooms
-- `GET /api/rooms` - List all rooms
-- `POST /api/rooms` - Create new room
-- `GET /api/rooms/{id}` - Get room details
-- `PUT /api/rooms/{id}` - Update room
-- `DELETE /api/rooms/{id}` - Delete room
-- `GET /api/rooms/available` - Get available rooms by type
-- `GET /api/rooms/occupancy` - Get occupancy statistics
-- `GET /api/rooms/rates` - Get room rates
-- `POST /api/rooms/rates` - Update room rates
+- `GET /api/v1/rooms` - List all rooms
+- `POST /api/v1/rooms` - Create new room
+- `GET /api/v1/rooms/{id}` - Get room details
+- `PUT /api/v1/rooms/{id}` - Update room
+- `DELETE /api/v1/rooms/{id}` - Delete room
+- `GET /api/v1/rooms/available` - Get available rooms by type
+- `GET /api/v1/rooms/occupancy` - Get occupancy statistics
+- `GET /api/v1/rooms/rates` - Get room rates
+- `POST /api/v1/rooms/rates` - Update room rates
 
 ### Guests
-- `GET /api/guests` - List all guests
-- `POST /api/guests` - Create new guest
-- `GET /api/guests/{id}` - Get guest details with booking history
-- `PUT /api/guests/{id}` - Update guest information
-- `GET /api/guests/search/phone` - Search guest by phone number
+- `GET /api/v1/guests` - List all guests
+- `POST /api/v1/guests` - Create new guest
+- `GET /api/v1/guests/{id}` - Get guest details with booking history
+- `PUT /api/v1/guests/{id}` - Update guest information
+- `GET /api/v1/guests/search/phone` - Search guest by phone number
 
 ### Guest Phone Lookup
 ```http
-GET /api/guests/search/phone?phone=+1234567890
+GET /api/v1/guests/search/phone?phone=+1234567890
 Authorization: Bearer {token}
 ```
 
 ### Payments
-- `GET /api/payments` - List payments
-- `POST /api/payments` - Create payment
-- `GET /api/payments/{id}` - Get payment details
-- `PUT /api/payments/{id}` - Update payment
-- `DELETE /api/payments/{id}` - Delete payment
-- `POST /api/payments/{id}/confirm` - Confirm payment
-- `GET /api/payments/ledger` - Get payment ledger
+- `GET /api/v1/payments` - List payments
+- `POST /api/v1/payments` - Create payment
+- `GET /api/v1/payments/{id}` - Get payment details
+- `PUT /api/v1/payments/{id}` - Update payment
+- `DELETE /api/v1/payments/{id}` - Delete payment
+- `POST /api/v1/payments/{id}/confirm` - Confirm payment
+- `GET /api/v1/payments/ledger` - Get payment ledger
 
 ### Create Payment
 ```http
-POST /api/payments
+POST /api/v1/payments
 Authorization: Bearer {token}
 Content-Type: application/json
 
@@ -177,9 +176,9 @@ Content-Type: application/json
 ```
 
 ### Dashboard
-- `GET /api/dashboard/stats` - Get dashboard statistics
-- `GET /api/dashboard/roll-call` - Get roll call data
-- `GET /api/dashboard/payments` - Get dashboard payments
+- `GET /api/v1/dashboard/stats` - Get dashboard statistics
+- `GET /api/v1/dashboard/roll-call` - Get roll call data
+- `GET /api/v1/dashboard/payments` - Get dashboard payments
 
 ## Automated Operations
 

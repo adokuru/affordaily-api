@@ -59,6 +59,8 @@ php artisan migrate
 php artisan db:seed
 ```
 
+To create the optional local demo users, set `SEED_DEFAULT_USERS=true` before running the seeder. Do not enable default demo credentials in production.
+
 6. Start the development server:
 ```bash
 php artisan serve
@@ -66,30 +68,22 @@ php artisan serve
 
 The application will be available at `http://localhost:8000`
 
-## Default Users
+## Local Demo Users
 
-### Admin User
-- **Email**: admin@affordaily.com
-- **Password**: admin123
-- **Role**: Admin (full access)
-
-### Receptionist User
-- **Email**: receptionist@affordaily.com
-- **Password**: receptionist123
-- **Role**: Receptionist (POS operations)
+Default users are opt-in for local development only. Set `SEED_DEFAULT_USERS=true`, run `php artisan db:seed`, then rotate the generated credentials before using any shared environment.
 
 ## API Usage
 
 ### Authentication
 ```bash
-curl -X POST http://localhost:8000/api/login \
+curl -X POST http://localhost:8000/api/v1/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"receptionist@affordaily.com","password":"receptionist123"}'
+  -d '{"email":"receptionist@affordaily.com","password":"CHANGE_ME"}'
 ```
 
 ### Create Booking (Check-in)
 ```bash
-curl -X POST http://localhost:8000/api/bookings \
+curl -X POST http://localhost:8000/api/v1/bookings \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -198,10 +192,10 @@ php artisan migrate:fresh --seed
 
 The API is designed to work with Android POS applications. Key endpoints for mobile:
 
-- `/api/bookings` - Check-in/out operations
-- `/api/visitor-passes` - Visitor management
-- `/api/rooms/available` - Room availability
-- `/api/payments` - Payment processing
+- `/api/v1/bookings` - Check-in/out operations
+- `/api/v1/visitor-passes` - Visitor management
+- `/api/v1/rooms/available` - Room availability
+- `/api/v1/payments` - Payment processing
 
 ## Support
 
