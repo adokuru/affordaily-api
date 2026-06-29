@@ -13,6 +13,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
@@ -62,32 +63,38 @@ class BookingController extends Controller
      */
     public function store(CreateBookingRequest $request)
     {
+        $idPhotoPath = null;
+
         try {
             $idPhotoPath = $this->storeIdPhoto($request);
 
-            // Find or create guest
-            $guest = $this->findOrCreateGuestAction->execute(
-                $request->guest_phone,
-                $request->guest_name,
-                $idPhotoPath
-            );
+            $booking = DB::transaction(function () use ($request, $idPhotoPath) {
+                // Find or create guest
+                $guest = $this->findOrCreateGuestAction->execute(
+                    $request->guest_phone,
+                    $request->guest_name,
+                    $idPhotoPath
+                );
 
-            // Create booking using action
-            $booking = $this->createBookingAction->execute(
-                $guest,
-                $request->guest_name,
-                $request->guest_phone,
-                $idPhotoPath,
-                $request->number_of_nights,
-                $request->preferred_bed_type,
-                $request->payment_method,
-                $request->guest_name,
-                $request->reference ?? $this->generateBookingReference(),
-                Auth::id()
-            );
+                // Create booking using action
+                $booking = $this->createBookingAction->execute(
+                    $guest,
+                    $request->guest_name,
+                    $request->guest_phone,
+                    $idPhotoPath,
+                    $request->number_of_nights,
+                    $request->preferred_bed_type,
+                    $request->payment_method,
+                    $request->guest_name,
+                    $request->reference ?? $this->generateBookingReference(),
+                    Auth::id()
+                );
 
-            // Update guest statistics
-            $this->updateGuestStatsAction->execute($guest, $booking->total_amount);
+                // Update guest statistics
+                $this->updateGuestStatsAction->execute($guest, $booking->total_amount);
+
+                return $booking;
+            });
 
             return response()->json([
                 'success' => true,
@@ -95,10 +102,11 @@ class BookingController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error creating booking: '.$e->getMessage(),
-            ], 500);
+            if ($idPhotoPath) {
+                Storage::disk('public')->delete($idPhotoPath);
+            }
+
+            return $this->serverError($e, 'Error creating booking');
         }
     }
 
@@ -137,10 +145,10 @@ class BookingController extends Controller
         try {
             $booking = Booking::findOrFail($id);
 
-            if ($booking->status !== 'active') {
+            if (! in_array($booking->status, ['active', 'pending_checkout'], true)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Booking is not active',
+                    'message' => 'Booking is not in a valid state for checkout',
                 ], 400);
             }
 
@@ -167,10 +175,7 @@ class BookingController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error during checkout: '.$e->getMessage(),
-            ], 500);
+            return $this->serverError($e, 'Error during checkout');
         }
     }
 
@@ -210,10 +215,7 @@ class BookingController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error extending booking: '.$e->getMessage(),
-            ], 500);
+            return $this->serverError($e, 'Error extending booking');
         }
     }
 
@@ -276,39 +278,6 @@ class BookingController extends Controller
         } while (Booking::where('booking_reference', $reference)->exists());
 
         return $reference;
-    }
-
-    /**
-     * Find existing guest or create new one.
-     */
-    private function findOrCreateGuest(Request $request): Guest
-    {
-        // First, try to find existing guest by phone
-        $guest = Guest::byPhone($request->guest_phone)->first();
-
-        if ($guest) {
-            // Update guest information if provided
-            $updateData = [];
-            if ($request->guest_name && $request->guest_name !== $guest->name) {
-                $updateData['name'] = $request->guest_name;
-            }
-            if ($request->id_photo_path && $request->id_photo_path !== $guest->id_photo_path) {
-                $updateData['id_photo_path'] = $request->id_photo_path;
-            }
-
-            if (! empty($updateData)) {
-                $guest->update($updateData);
-            }
-
-            return $guest;
-        }
-
-        // Create new guest
-        return Guest::create([
-            'name' => $request->guest_name,
-            'phone' => $request->guest_phone,
-            'id_photo_path' => $request->id_photo_path,
-        ]);
     }
 
     private function storeIdPhoto(CreateBookingRequest $request): ?string

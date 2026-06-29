@@ -6,10 +6,12 @@ use App\Http\Controllers\Api\GuestController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\VisitorPassController;
+use App\Http\Middleware\EnsureUserRole;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\Room;
 use App\Models\VisitorPass;
+use App\Services\PaymentLedgerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,30 +44,36 @@ Route::prefix('v1')->group(function () {
         Route::get('/rooms/available', [RoomController::class, 'available']);
         Route::get('/rooms/occupancy', [RoomController::class, 'occupancy']);
         Route::get('/rooms/rates', [RoomController::class, 'rates']);
-        Route::post('/rooms/rates', [RoomController::class, 'updateRates']);
-        Route::apiResource('rooms', RoomController::class);
+        Route::post('/rooms/rates', [RoomController::class, 'updateRates'])->middleware(EnsureUserRole::class.':admin');
+        Route::apiResource('rooms', RoomController::class)->only(['index', 'show']);
+        Route::apiResource('rooms', RoomController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->middleware(EnsureUserRole::class.':admin');
 
         // Booking routes
         Route::get('/bookings/search', [BookingController::class, 'search']);
         Route::get('/bookings/active', [BookingController::class, 'active']);
         Route::post('/bookings/{id}/checkout', [BookingController::class, 'checkout']);
         Route::post('/bookings/{id}/extend', [BookingController::class, 'extend']);
-        Route::apiResource('bookings', BookingController::class);
+        Route::apiResource('bookings', BookingController::class)->only(['index', 'store', 'show']);
 
         // Visitor pass routes
-        Route::apiResource('visitor-passes', VisitorPassController::class);
+        Route::apiResource('visitor-passes', VisitorPassController::class)->only(['index', 'store', 'show']);
         Route::post('/visitor-passes/{id}/checkout', [VisitorPassController::class, 'checkout']);
         Route::get('/visitor-passes/booking/{bookingId}/active', [VisitorPassController::class, 'activeForBooking']);
         Route::get('/visitor-passes/booking/{bookingId}/all', [VisitorPassController::class, 'forBooking']);
 
         // Payment routes
         Route::get('/payments/ledger', [PaymentController::class, 'ledger']);
-        Route::post('/payments/{id}/confirm', [PaymentController::class, 'confirm']);
-        Route::apiResource('payments', PaymentController::class);
+        Route::post('/payments/{id}/confirm', [PaymentController::class, 'confirm'])->middleware(EnsureUserRole::class.':admin');
+        Route::apiResource('payments', PaymentController::class)->only(['index', 'store', 'show']);
+        Route::apiResource('payments', PaymentController::class)
+            ->only(['update', 'destroy'])
+            ->middleware(EnsureUserRole::class.':admin');
 
         // Guest routes
         Route::get('/guests/search/phone', [GuestController::class, 'searchByPhone']);
-        Route::apiResource('guests', GuestController::class);
+        Route::apiResource('guests', GuestController::class)->except(['destroy']);
 
         // Dashboard routes
         Route::get('/dashboard/stats', function () {
@@ -98,30 +106,16 @@ Route::prefix('v1')->group(function () {
             ]);
         });
 
-        Route::get('/dashboard/payments', function (Request $request) {
-            $query = Payment::with(['booking.room', 'processedBy']);
-
-            if ($request->date_from) {
-                $query->whereDate('created_at', '>=', $request->date_from);
-            }
-
-            if ($request->date_to) {
-                $query->whereDate('created_at', '<=', $request->date_to);
-            }
-
-            if ($request->payment_method) {
-                $query->where('payment_method', $request->payment_method);
-            }
-
-            if ($request->confirmed !== null) {
-                $query->where('is_confirmed', $request->confirmed);
-            }
+        Route::get('/dashboard/payments', function (Request $request, PaymentLedgerService $paymentLedgerService) {
+            $filters = $paymentLedgerService->validatedFilters($request);
+            $query = $paymentLedgerService->query($filters);
 
             $payments = $query->orderBy('created_at', 'desc')->paginate(50);
 
             return response()->json([
                 'success' => true,
                 'data' => $payments,
+                'summary' => $paymentLedgerService->summary($query),
             ]);
         });
     });

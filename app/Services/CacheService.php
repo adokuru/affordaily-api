@@ -10,8 +10,11 @@ class CacheService
      * Cache keys constants
      */
     const ROOM_OCCUPANCY_STATS = 'room_occupancy_stats';
+
     const AVAILABLE_ROOMS = 'available_rooms';
+
     const ROOM_RATES = 'room_rates';
+
     const DASHBOARD_STATS = 'dashboard_stats';
 
     /**
@@ -22,7 +25,6 @@ class CacheService
     /**
      * Get room occupancy stats with caching.
      *
-     * @param callable $callback
      * @return mixed
      */
     public static function rememberRoomOccupancyStats(callable $callback)
@@ -33,18 +35,16 @@ class CacheService
     /**
      * Get available rooms with caching.
      *
-     * @param callable $callback
      * @return mixed
      */
-    public static function rememberAvailableRooms(callable $callback)
+    public static function rememberAvailableRooms(callable $callback, ?string $bedType = null)
     {
-        return Cache::remember(self::AVAILABLE_ROOMS, self::CACHE_DURATION, $callback);
+        return Cache::remember(self::availableRoomsKey($bedType), self::CACHE_DURATION, $callback);
     }
 
     /**
      * Get room rates with caching.
      *
-     * @param callable $callback
      * @return mixed
      */
     public static function rememberRoomRates(callable $callback)
@@ -55,7 +55,6 @@ class CacheService
     /**
      * Get dashboard stats with caching.
      *
-     * @param callable $callback
      * @return mixed
      */
     public static function rememberDashboardStats(callable $callback)
@@ -69,7 +68,9 @@ class CacheService
     public static function clearRoomCache()
     {
         Cache::forget(self::ROOM_OCCUPANCY_STATS);
-        Cache::forget(self::AVAILABLE_ROOMS);
+        Cache::forget(self::availableRoomsKey());
+        Cache::forget(self::availableRoomsKey('A'));
+        Cache::forget(self::availableRoomsKey('B'));
         Cache::forget(self::DASHBOARD_STATS);
     }
 
@@ -79,8 +80,15 @@ class CacheService
     public static function clearAllCache()
     {
         Cache::forget(self::ROOM_OCCUPANCY_STATS);
-        Cache::forget(self::AVAILABLE_ROOMS);
+        Cache::forget(self::availableRoomsKey());
+        Cache::forget(self::availableRoomsKey('A'));
+        Cache::forget(self::availableRoomsKey('B'));
         Cache::forget(self::ROOM_RATES);
         Cache::forget(self::DASHBOARD_STATS);
+    }
+
+    private static function availableRoomsKey(?string $bedType = null): string
+    {
+        return self::AVAILABLE_ROOMS.':'.($bedType ?: 'all');
     }
 }

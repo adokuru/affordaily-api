@@ -2,20 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Booking;
-use App\Models\Room;
 use App\Models\Payment;
+use App\Models\Room;
+use App\Models\RoomRate;
 use App\Models\VisitorPass;
+use App\Services\PaymentLedgerService;
 use App\Services\RoomAssignmentService;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    protected $roomAssignmentService;
-
-    public function __construct(RoomAssignmentService $roomAssignmentService)
-    {
-        $this->roomAssignmentService = $roomAssignmentService;
+    public function __construct(
+        private readonly RoomAssignmentService $roomAssignmentService,
+        private readonly PaymentLedgerService $paymentLedgerService
+    ) {
     }
 
     /**
@@ -29,7 +30,7 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
-        
+
         $pendingCheckouts = Booking::pendingCheckout()
             ->with(['room'])
             ->orderBy('scheduled_checkout_time')
@@ -71,34 +72,11 @@ class DashboardController extends Controller
      */
     public function payments(Request $request)
     {
-        $query = Payment::with(['booking.room', 'processedBy']);
-
-        if ($request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-
-        if ($request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        if ($request->payment_method) {
-            $query->where('payment_method', $request->payment_method);
-        }
-
-        if ($request->confirmed !== null) {
-            $query->where('is_confirmed', $request->confirmed);
-        }
+        $filters = $this->paymentLedgerService->validatedFilters($request);
+        $query = $this->paymentLedgerService->query($filters);
+        $summary = $this->paymentLedgerService->summary($query);
 
         $payments = $query->orderBy('created_at', 'desc')->paginate(50);
-
-        // Calculate summary
-        $summary = [
-            'total_amount' => $payments->sum('amount'),
-            'cash_total' => $payments->where('payment_method', 'cash')->sum('amount'),
-            'transfer_total' => $payments->where('payment_method', 'transfer')->sum('amount'),
-            'confirmed_total' => $payments->where('is_confirmed', true)->sum('amount'),
-            'pending_total' => $payments->where('is_confirmed', false)->sum('amount'),
-        ];
 
         return view('payments', compact('payments', 'summary'));
     }
@@ -108,7 +86,7 @@ class DashboardController extends Controller
      */
     public function settings()
     {
-        $roomRates = \App\Models\RoomRate::active()->get();
+        $roomRates = RoomRate::active()->get();
         $rooms = Room::orderBy('bed_type')->orderBy('room_number')->get();
 
         return view('settings', compact('roomRates', 'rooms'));

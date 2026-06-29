@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Room extends Model
 {
@@ -33,7 +33,7 @@ class Room extends Model
      */
     public function activeBooking()
     {
-        return $this->hasOne(Booking::class)->where('status', 'active');
+        return $this->hasOne(Booking::class)->whereIn('status', ['active', 'pending_checkout']);
     }
 
     /**

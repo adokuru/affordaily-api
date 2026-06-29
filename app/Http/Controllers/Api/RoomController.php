@@ -2,20 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Http\Resources\RoomResource;
 use App\Actions\Room\GetAvailableRoomsAction;
 use App\Actions\Room\GetRoomOccupancyStatsAction;
-use App\Services\CacheService;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\RoomResource;
 use App\Models\Room;
 use App\Models\RoomRate;
+use App\Services\CacheService;
 use App\Services\RoomAssignmentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RoomController extends Controller
 {
     protected RoomAssignmentService $roomAssignmentService;
+
     protected GetAvailableRoomsAction $getAvailableRoomsAction;
+
     protected GetRoomOccupancyStatsAction $getRoomOccupancyStatsAction;
 
     public function __construct(
@@ -51,7 +54,7 @@ class RoomController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => RoomResource::collection($rooms)
+            'data' => RoomResource::collection($rooms),
         ]);
     }
 
@@ -69,7 +72,7 @@ class RoomController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -83,14 +86,11 @@ class RoomController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $room
+                'data' => $room,
             ], 201);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error creating room: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error creating room');
         }
     }
 
@@ -105,7 +105,7 @@ class RoomController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $room
+            'data' => $room,
         ]);
     }
 
@@ -115,7 +115,7 @@ class RoomController extends Controller
     public function update(Request $request, string $id)
     {
         $validator = \Validator::make($request->all(), [
-            'room_number' => 'sometimes|required|string|unique:rooms,room_number,' . $id,
+            'room_number' => 'sometimes|required|string|unique:rooms,room_number,'.$id,
             'bed_type' => 'sometimes|required|in:A,B',
             'description' => 'nullable|string',
             'is_available' => 'sometimes|boolean',
@@ -124,7 +124,7 @@ class RoomController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -134,14 +134,11 @@ class RoomController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $room
+                'data' => $room,
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error updating room: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error updating room');
         }
     }
 
@@ -152,12 +149,12 @@ class RoomController extends Controller
     {
         try {
             $room = Room::findOrFail($id);
-            
+
             // Check if room has active bookings
             if ($room->activeBooking()->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot delete room with active bookings'
+                    'message' => 'Cannot delete room with active bookings',
                 ], 400);
             }
 
@@ -165,14 +162,11 @@ class RoomController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Room deleted successfully'
+                'message' => 'Room deleted successfully',
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error deleting room: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error deleting room');
         }
     }
 
@@ -183,11 +177,11 @@ class RoomController extends Controller
     {
         $availableRooms = CacheService::rememberAvailableRooms(function () use ($request) {
             return $this->getAvailableRoomsAction->execute($request->bed_type);
-        });
+        }, $request->bed_type);
 
         return response()->json([
             'success' => true,
-            'data' => $availableRooms
+            'data' => $availableRooms,
         ]);
     }
 
@@ -202,7 +196,7 @@ class RoomController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -215,7 +209,7 @@ class RoomController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $rates
+            'data' => $rates,
         ]);
     }
 
@@ -233,35 +227,34 @@ class RoomController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
-            // Deactivate current rates
-            RoomRate::active()->update(['is_active' => false]);
+            $newRates = DB::transaction(function () use ($request) {
+                RoomRate::active()->lockForUpdate()->update(['is_active' => false]);
 
-            // Create new rates
-            foreach ($request->rates as $bedType => $rate) {
-                RoomRate::create([
-                    'bed_type' => $bedType,
-                    'rate_per_night' => $rate,
-                    'is_active' => true,
-                ]);
-            }
+                foreach ($request->rates as $bedType => $rate) {
+                    RoomRate::create([
+                        'bed_type' => $bedType,
+                        'rate_per_night' => $rate,
+                        'is_active' => true,
+                    ]);
+                }
 
-            $newRates = RoomRate::active()->get();
+                return RoomRate::active()->get();
+            });
+
+            CacheService::clearAllCache();
 
             return response()->json([
                 'success' => true,
-                'data' => $newRates
+                'data' => $newRates,
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error updating rates: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error updating rates');
         }
     }
 }

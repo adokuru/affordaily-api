@@ -183,10 +183,13 @@ php artisan migrate:fresh --seed
 
 1. Set up proper database (MySQL/PostgreSQL)
 2. Configure environment variables
-3. Set up cron job for scheduler
-4. Configure web server (Apache/Nginx)
-5. Set up SSL certificates
-6. Configure backup procedures
+3. Set `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD`; dashboard routes fail closed in production without them
+4. Set up cron job for scheduler
+5. Configure web server (Apache/Nginx)
+6. Set up SSL certificates
+7. Configure backup procedures
+
+Admin-only API operations include room creation/update/deletion, room-rate updates, payment confirmation, and payment correction/deletion. Receptionist users can perform POS-safe check-in, visitor, read, and payment-create operations.
 
 ## Mobile App Integration
 

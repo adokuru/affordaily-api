@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Guest\SearchGuestByPhoneAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Guest\SearchGuestRequest;
 use App\Http\Resources\GuestResource;
-use App\Actions\Guest\SearchGuestByPhoneAction;
 use App\Models\Guest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -26,16 +26,16 @@ class GuestController extends Controller
     {
         $guest = $this->searchGuestByPhoneAction->execute($request->phone);
 
-        if (!$guest) {
+        if (! $guest) {
             return response()->json([
                 'success' => false,
-                'message' => 'Guest not found'
+                'message' => 'Guest not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => new GuestResource($guest)
+            'data' => new GuestResource($guest),
         ]);
     }
 
@@ -55,25 +55,22 @@ class GuestController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             $guest = Guest::create($request->only([
-                'name', 'phone', 'email', 'id_photo_path', 'notes'
+                'name', 'phone', 'email', 'id_photo_path', 'notes',
             ]));
 
             return response()->json([
                 'success' => true,
-                'data' => $guest
+                'data' => $guest,
             ], 201);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error creating guest: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error creating guest');
         }
     }
 
@@ -86,7 +83,7 @@ class GuestController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:255',
-            'phone' => 'sometimes|required|string|max:20|unique:guests,phone,' . $id,
+            'phone' => 'sometimes|required|string|max:20|unique:guests,phone,'.$id,
             'email' => 'nullable|email|max:255',
             'id_photo_path' => 'nullable|string',
             'notes' => 'nullable|string',
@@ -95,25 +92,22 @@ class GuestController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             $guest->update($request->only([
-                'name', 'phone', 'email', 'id_photo_path', 'notes'
+                'name', 'phone', 'email', 'id_photo_path', 'notes',
             ]));
 
             return response()->json([
                 'success' => true,
-                'data' => $guest->fresh()
+                'data' => $guest->fresh(),
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error updating guest: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error updating guest');
         }
     }
 
@@ -127,7 +121,7 @@ class GuestController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $guest
+            'data' => $guest,
         ]);
     }
 
@@ -142,8 +136,8 @@ class GuestController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -152,7 +146,7 @@ class GuestController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $guests
+            'data' => $guests,
         ]);
     }
 }

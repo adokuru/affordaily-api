@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Booking;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 
 class ProcessCheckouts extends Command
 {
@@ -28,7 +28,7 @@ class ProcessCheckouts extends Command
     public function handle()
     {
         $time = $this->option('time') === 'now' ? now() : Carbon::parse($this->option('time'));
-        
+
         $this->info("Processing checkouts for time: {$time->format('Y-m-d H:i:s')}");
 
         // Midnight operation: Mark bookings with scheduled checkout as pending checkout
@@ -73,7 +73,7 @@ class ProcessCheckouts extends Command
         $this->info('Processing noon auto-checkouts...');
 
         $bookings = Booking::pendingCheckout()
-            ->where('scheduled_checkout_time', '<', $time)
+            ->where('scheduled_checkout_time', '<=', $time)
             ->get();
 
         $count = 0;

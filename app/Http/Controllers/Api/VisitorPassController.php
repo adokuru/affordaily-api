@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\VisitorPass\CheckoutVisitorAction;
+use App\Actions\VisitorPass\IssueVisitorPassAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\VisitorPass\IssueVisitorPassRequest;
 use App\Http\Resources\VisitorPassResource;
-use App\Actions\VisitorPass\IssueVisitorPassAction;
-use App\Actions\VisitorPass\CheckoutVisitorAction;
 use App\Models\VisitorPass;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 class VisitorPassController extends Controller
 {
     protected IssueVisitorPassAction $issueVisitorPassAction;
+
     protected CheckoutVisitorAction $checkoutVisitorAction;
 
     public function __construct(
@@ -43,7 +44,7 @@ class VisitorPassController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => VisitorPassResource::collection($visitorPasses)
+            'data' => VisitorPassResource::collection($visitorPasses),
         ]);
     }
 
@@ -62,14 +63,11 @@ class VisitorPassController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new VisitorPassResource($visitorPass)
+                'data' => new VisitorPassResource($visitorPass),
             ], 201);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error issuing visitor pass: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error issuing visitor pass');
         }
     }
 
@@ -83,7 +81,7 @@ class VisitorPassController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => new VisitorPassResource($visitorPass)
+            'data' => new VisitorPassResource($visitorPass),
         ]);
     }
 
@@ -98,14 +96,11 @@ class VisitorPassController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => new VisitorPassResource($visitorPass)
+                'data' => new VisitorPassResource($visitorPass),
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error checking out visitor: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error checking out visitor');
         }
     }
 
@@ -122,14 +117,11 @@ class VisitorPassController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => VisitorPassResource::collection($activeVisitorPasses)
+                'data' => VisitorPassResource::collection($activeVisitorPasses),
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error fetching visitor passes: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error fetching visitor passes');
         }
     }
 
@@ -146,14 +138,11 @@ class VisitorPassController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => VisitorPassResource::collection($visitorPasses)
+                'data' => VisitorPassResource::collection($visitorPasses),
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error fetching visitor passes: ' . $e->getMessage()
-            ], 500);
+            return $this->serverError($e, 'Error fetching visitor passes');
         }
     }
 }

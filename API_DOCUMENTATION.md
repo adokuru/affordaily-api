@@ -6,6 +6,10 @@ Affordaily is a property management POS system for affordable short-stay rooms. 
 ## Authentication
 All API endpoints (except login) require authentication using Laravel Sanctum tokens.
 
+Role access:
+- `admin`: full access, including room setup, rate updates, payment confirmation, and payment correction/deletion.
+- `receptionist`: POS-safe access for check-ins, visitor passes, room/payment reads, and payment creation.
+
 ### Login
 ```http
 POST /api/v1/login
@@ -129,14 +133,14 @@ Content-Type: application/json
 
 ### Rooms
 - `GET /api/v1/rooms` - List all rooms
-- `POST /api/v1/rooms` - Create new room
+- `POST /api/v1/rooms` - Create new room (admin)
 - `GET /api/v1/rooms/{id}` - Get room details
-- `PUT /api/v1/rooms/{id}` - Update room
-- `DELETE /api/v1/rooms/{id}` - Delete room
+- `PUT /api/v1/rooms/{id}` - Update room (admin)
+- `DELETE /api/v1/rooms/{id}` - Delete room (admin)
 - `GET /api/v1/rooms/available` - Get available rooms by type
 - `GET /api/v1/rooms/occupancy` - Get occupancy statistics
 - `GET /api/v1/rooms/rates` - Get room rates
-- `POST /api/v1/rooms/rates` - Update room rates
+- `POST /api/v1/rooms/rates` - Update room rates (admin)
 
 ### Guests
 - `GET /api/v1/guests` - List all guests
@@ -155,9 +159,9 @@ Authorization: Bearer {token}
 - `GET /api/v1/payments` - List payments
 - `POST /api/v1/payments` - Create payment
 - `GET /api/v1/payments/{id}` - Get payment details
-- `PUT /api/v1/payments/{id}` - Update payment
-- `DELETE /api/v1/payments/{id}` - Delete payment
-- `POST /api/v1/payments/{id}/confirm` - Confirm payment
+- `PUT /api/v1/payments/{id}` - Update payment (admin)
+- `DELETE /api/v1/payments/{id}` - Delete payment (admin)
+- `POST /api/v1/payments/{id}/confirm` - Confirm payment (admin)
 - `GET /api/v1/payments/ledger` - Get payment ledger
 
 ### Create Payment
