@@ -12,7 +12,9 @@ class PaymentLedgerService
 {
     public function validatedFilters(Request $request): array
     {
-        $validator = Validator::make($request->all(), [
+        $input = $this->normalizedInput($request);
+
+        $validator = Validator::make($input, [
             'booking_id' => 'sometimes|integer|exists:bookings,id',
             'payment_method' => 'sometimes|in:cash,transfer',
             'is_confirmed' => 'sometimes|boolean',
@@ -26,6 +28,25 @@ class PaymentLedgerService
         }
 
         return $validator->validated();
+    }
+
+    private function normalizedInput(Request $request): array
+    {
+        $input = $request->all();
+
+        foreach (['is_confirmed', 'confirmed'] as $key) {
+            if (! array_key_exists($key, $input)) {
+                continue;
+            }
+
+            $value = filter_var($input[$key], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+            if ($value !== null) {
+                $input[$key] = $value;
+            }
+        }
+
+        return $input;
     }
 
     public function query(array $filters = []): Builder

@@ -242,6 +242,28 @@ class ProductionReadinessTest extends TestCase
         }
     }
 
+    public function test_default_demo_api_credentials_are_blocked_in_production(): void
+    {
+        config(['app.env' => 'production']);
+
+        User::create([
+            'name' => 'Receptionist User',
+            'email' => 'receptionist@affordaily.com',
+            'password' => Hash::make('receptionist123'),
+            'role' => 'receptionist',
+        ]);
+
+        $this->postJson('/api/v1/login', [
+            'email' => 'receptionist@affordaily.com',
+            'password' => 'receptionist123',
+        ])
+            ->assertUnauthorized()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Default demo credentials are disabled in production');
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
     public function test_payment_create_update_and_delete_keep_booking_balance_consistent(): void
     {
         $user = $this->actingUser();

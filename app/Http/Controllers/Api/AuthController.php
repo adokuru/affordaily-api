@@ -28,6 +28,13 @@ class AuthController extends Controller
             ], 422);
         }
 
+        if ($this->usesProductionDemoCredentials($request)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Default demo credentials are disabled in production',
+            ], 401);
+        }
+
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
                 'success' => false,
@@ -46,6 +53,19 @@ class AuthController extends Controller
                 'token_type' => 'Bearer',
             ]
         ]);
+    }
+
+    private function usesProductionDemoCredentials(Request $request): bool
+    {
+        if (config('app.env') !== 'production') {
+            return false;
+        }
+
+        return match ($request->email) {
+            'admin@affordaily.com' => $request->password === 'admin123',
+            'receptionist@affordaily.com' => $request->password === 'receptionist123',
+            default => false,
+        };
     }
 
     /**
