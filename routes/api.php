@@ -31,6 +31,9 @@ Route::prefix('v1')->group(function () {
 
     // Authentication routes
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:login');
+    Route::post('/password/verify-otp', [AuthController::class, 'verifyPasswordOtp'])->middleware('throttle:login');
+    Route::post('/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:login');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
     // Protected routes
